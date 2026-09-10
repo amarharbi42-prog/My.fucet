@@ -16,9 +16,11 @@
     input:focus { border-color: #38bdf8; }
     .captcha-box { background: #0f172a; border: 1px dashed #38bdf8; border-radius: 10px; padding: 12px; margin-bottom: 20px; }
     .captcha-text { font-size: 16px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; }
-    button { width: 100%; padding: 14px; background: #0284c7; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+    button { width: 100%; padding: 14px; background: #0284c7; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
     button:hover { background: #0369a1; }
     button:disabled { background: #475569; cursor: not-allowed; }
+    .btn-step2 { background: #10b981; }
+    .btn-step2:hover { background: #059669; }
     #msg { margin-top: 20px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
     .success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
     .error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; }
@@ -43,7 +45,11 @@
       <input type="number" id="captchaAnswer" placeholder="أدخل ناتج العملية هنا" dir="ltr">
     </div>
 
-    <button id="claimBtn" onclick="claimReward()">سحب المكافأة الآن</button>
+    <!-- زر الخطوة 1: فحص الكابتشا وفتح الإعلان الأول -->
+    <button id="step1Btn" onclick="verifyAndOpenAd1()">تأكيد ومتابعة (خطوة 1/2)</button>
+
+    <!-- زر الخطوة 2: فتح الإعلان الثاني وسحب العملات -->
+    <button id="claimBtn" class="btn-step2" onclick="claimReward()" style="display: none;">سحب المكافأة الآن (خطوة 2/2)</button>
 
     <div id="msg"></div>
 
@@ -54,6 +60,10 @@
   </div>
 
   <script>
+    // رابط Monetag المباشر الخاص بك
+    const MONETAG_LINK_1 = "https://omg10.com/4/11769732";
+    const MONETAG_LINK_2 = "https://omg10.com/4/11769732";
+
     const COOLDOWN_TIME = 10 * 60;
     let expectedSum = 0;
 
@@ -76,27 +86,32 @@
     }
 
     function startTimer(secondsLeft) {
-      const btn = document.getElementById('claimBtn');
-      btn.disabled = true;
+      const btn1 = document.getElementById('step1Btn');
+      const btn2 = document.getElementById('claimBtn');
+      btn2.style.display = 'none';
+      btn1.style.display = 'block';
+      btn1.disabled = true;
+
       const interval = setInterval(() => {
         const m = Math.floor(secondsLeft / 60);
         const s = secondsLeft % 60;
-        btn.innerText = `يرجى الانتظار (${m}:${s < 10 ? '0' : ''}${s})`;
+        btn1.innerText = `يرجى الانتظار (${m}:${s < 10 ? '0' : ''}${s})`;
         secondsLeft--;
         if (secondsLeft < 0) {
           clearInterval(interval);
-          btn.disabled = false;
-          btn.innerText = 'سحب المكافأة الآن';
+          btn1.disabled = false;
+          btn1.innerText = 'تأكيد ومتابعة (خطوة 1/2)';
           localStorage.removeItem('last_faucet_claim');
         }
       }, 1000);
     }
 
-    async function claimReward() {
+    // الخطوة 1: فحص البيانات وفتح الإعلان أول مرة
+    function verifyAndOpenAd1() {
       const address = document.getElementById('address').value.trim();
       const userAnswer = parseInt(document.getElementById('captchaAnswer').value.trim(), 10);
       const msgDiv = document.getElementById('msg');
-      const btn = document.getElementById('claimBtn');
+      const btn1 = document.getElementById('step1Btn');
 
       if (!address) {
         showMessage('يرجى كتابة عنوان محفظتك أو إيميل FaucetPay أولاً', 'error');
@@ -109,8 +124,39 @@
         return;
       }
 
-      btn.disabled = true;
-      btn.innerText = 'جاري التحقق والإرسال...';
+      msgDiv.style.display = 'none';
+
+      // فتح الإعلان في تبويب جديد
+      window.open(MONETAG_LINK_1, '_blank');
+
+      // عد تنازلي 5 ثوانٍ ثم إظهار زر السحب
+      btn1.disabled = true;
+      let countdown = 5;
+      btn1.innerText = `جاري التحقق (${countdown})...`;
+
+      const timer = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          btn1.innerText = `جاري التحقق (${countdown})...`;
+        } else {
+          clearInterval(timer);
+          btn1.style.display = 'none';
+          document.getElementById('claimBtn').style.display = 'block';
+        }
+      }, 1000);
+    }
+
+    // الخطوة 2: فتح الإعلان ثاني مرة وإرسال الساتوشي
+    async function claimReward() {
+      const address = document.getElementById('address').value.trim();
+      const msgDiv = document.getElementById('msg');
+      const btn2 = document.getElementById('claimBtn');
+
+      // فتح الإعلان مرة ثانية لاحتساب ظهور إضافي
+      window.open(MONETAG_LINK_2, '_blank');
+
+      btn2.disabled = true;
+      btn2.innerText = 'جاري التحقق والإرسال...';
       msgDiv.style.display = 'none';
 
       try {
@@ -128,14 +174,14 @@
           startTimer(COOLDOWN_TIME);
         } else {
           showMessage(data.message || 'تعذر الإرسال، تحقق من العنوان ورصيد الموقع', 'error');
-          btn.disabled = false;
-          btn.innerText = 'سحب المكافأة الآن';
+          btn2.disabled = false;
+          btn2.innerText = 'سحب المكافأة الآن (خطوة 2/2)';
           generateCaptcha();
         }
       } catch (err) {
         showMessage('حدث خطأ في الاتصال بالسيرفر', 'error');
-        btn.disabled = false;
-        btn.innerText = 'سحب المكافأة الآن';
+        btn2.disabled = false;
+        btn2.innerText = 'سحب المكافأة الآن (خطوة 2/2)';
         generateCaptcha();
       }
     }
