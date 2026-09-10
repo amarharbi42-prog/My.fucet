@@ -18,10 +18,28 @@ export default async function handler(req, res) {
   }
 
   const API_KEY = "26e93b44485453e5360831aa911b85d495ef1d11dc32d121211df585a8cf1e8e";
-  const AMOUNT = 30;
   const CURRENCY = "USDT";
+  // 1000 ساتوشي USDT تعادل 0.00001000 USDT (أقل من جزء من السنت)
+  const AMOUNT = 1000; 
 
   try {
+    // 1. أولاً: فحص الرصيد الفعلي الذي يراه FaucetPay عبر الـ API
+    const checkBalance = await fetch('https://faucetpay.io/api/v1/getbalance', {
+      method: 'POST',
+      body: new URLSearchParams({ api_key: API_KEY, currency: CURRENCY }),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const balanceData = await checkBalance.json();
+
+    // إذا كان هناك مشكلة في المفتاح نفسه
+    if (balanceData.status !== 200) {
+      return res.status(400).json({
+        success: false,
+        message: `خطأ في مفتاح API: ${balanceData.message || 'غير صالح'}`
+      });
+    }
+
+    // 2. ثانياً: إرسال المبلغ
     const params = new URLSearchParams();
     params.append('api_key', API_KEY);
     params.append('amount', AMOUNT);
@@ -41,12 +59,12 @@ export default async function handler(req, res) {
     if (data.status === 200) {
       return res.status(200).json({
         success: true,
-        message: `تم إرسال ${AMOUNT} ساتوشي بنجاح إلى حسابك في FaucetPay!`,
+        message: `تم إرسال المكافأة بنجاح إلى حسابك في FaucetPay!`,
       });
     } else {
       return res.status(400).json({
         success: false,
-        message: data.message || 'حدث خطأ أثناء معالجة الدفع',
+        message: `${data.message} (رصيد حسابك الذي يقرأه السيرفر: ${balanceData.balance})`,
       });
     }
   } catch (error) {
