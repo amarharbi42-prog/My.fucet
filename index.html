@@ -10,10 +10,12 @@
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; width: 100%; max-width: 480px; padding: 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
     h1 { font-size: 24px; margin-bottom: 8px; color: #38bdf8; }
     p.desc { font-size: 14px; color: #94a3b8; margin-bottom: 24px; }
-    .input-group { margin-bottom: 20px; text-align: right; }
+    .input-group { margin-bottom: 16px; text-align: right; }
     label { display: block; font-size: 13px; margin-bottom: 8px; color: #cbd5e1; }
     input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s; }
     input:focus { border-color: #38bdf8; }
+    .captcha-box { background: #0f172a; border: 1px dashed #38bdf8; border-radius: 10px; padding: 12px; margin-bottom: 20px; }
+    .captcha-text { font-size: 16px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; }
     button { width: 100%; padding: 14px; background: #0284c7; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
     button:hover { background: #0369a1; }
     button:disabled { background: #475569; cursor: not-allowed; }
@@ -35,6 +37,12 @@
       <input type="text" id="address" placeholder="name@example.com أو عنوان المحفظة" dir="ltr">
     </div>
 
+    <!-- خانة الكابتشا الحسابية -->
+    <div class="captcha-box">
+      <div class="captcha-text" id="captchaQuestion">أمان الصنبور: جاري التحميل...</div>
+      <input type="number" id="captchaAnswer" placeholder="أدخل ناتج العملية هنا" dir="ltr">
+    </div>
+
     <button id="claimBtn" onclick="claimReward()">سحب المكافأة الآن</button>
 
     <div id="msg"></div>
@@ -46,7 +54,16 @@
   </div>
 
   <script>
-    const COOLDOWN_TIME = 10 * 60; // 10 دقائق بالثواني
+    const COOLDOWN_TIME = 10 * 60;
+    let expectedSum = 0;
+
+    function generateCaptcha() {
+      const num1 = Math.floor(Math.random() * 10) + 1;
+      const num2 = Math.floor(Math.random() * 10) + 1;
+      expectedSum = num1 + num2;
+      document.getElementById('captchaQuestion').innerText = `أمان الصنبور: ما ناتج ${num1} + ${num2} = ؟`;
+      document.getElementById('captchaAnswer').value = '';
+    }
 
     function checkCooldown() {
       const lastClaim = localStorage.getItem('last_faucet_claim');
@@ -77,11 +94,18 @@
 
     async function claimReward() {
       const address = document.getElementById('address').value.trim();
+      const userAnswer = parseInt(document.getElementById('captchaAnswer').value.trim(), 10);
       const msgDiv = document.getElementById('msg');
       const btn = document.getElementById('claimBtn');
 
       if (!address) {
         showMessage('يرجى كتابة عنوان محفظتك أو إيميل FaucetPay أولاً', 'error');
+        return;
+      }
+
+      if (isNaN(userAnswer) || userAnswer !== expectedSum) {
+        showMessage('إجابة العملية الحسابية غير صحيحة، حاول مجدداً', 'error');
+        generateCaptcha();
         return;
       }
 
@@ -106,11 +130,13 @@
           showMessage(data.message || 'تعذر الإرسال، تحقق من العنوان ورصيد الموقع', 'error');
           btn.disabled = false;
           btn.innerText = 'سحب المكافأة الآن';
+          generateCaptcha();
         }
       } catch (err) {
         showMessage('حدث خطأ في الاتصال بالسيرفر', 'error');
         btn.disabled = false;
         btn.innerText = 'سحب المكافأة الآن';
+        generateCaptcha();
       }
     }
 
@@ -121,6 +147,7 @@
       msg.style.display = 'block';
     }
 
+    generateCaptcha();
     checkCooldown();
   </script>
 </body>
