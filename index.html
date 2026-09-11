@@ -16,11 +16,12 @@
     input:focus { border-color: #38bdf8; }
     .captcha-box { background: #0f172a; border: 1px dashed #38bdf8; border-radius: 10px; padding: 12px; margin-bottom: 20px; }
     .captcha-text { font-size: 16px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; }
-    button { width: 100%; padding: 14px; background: #0284c7; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-    button:hover { background: #0369a1; }
-    button:disabled { background: #475569; cursor: not-allowed; }
+    .btn { display: block; width: 100%; padding: 14px; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; transition: 0.2s; }
+    .btn-step1 { background: #0284c7; }
+    .btn-step1:hover { background: #0369a1; }
     .btn-step2 { background: #10b981; }
     .btn-step2:hover { background: #059669; }
+    .btn:disabled { background: #475569; cursor: not-allowed; }
     #msg { margin-top: 20px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
     .success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
     .error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; }
@@ -45,11 +46,15 @@
       <input type="number" id="captchaAnswer" placeholder="أدخل ناتج العملية هنا" dir="ltr">
     </div>
 
-    <!-- زر الخطوة 1: فحص الكابتشا وفتح الإعلان الأول -->
-    <button id="step1Btn" onclick="verifyAndOpenAd1()">تأكيد ومتابعة (خطوة 1/2)</button>
+    <!-- خطوة 1: رابط إعلان صريح مستحيل للمتصفح أن يحظره -->
+    <a id="step1Link" href="https://omg10.com/4/11769732" target="_blank" class="btn btn-step1" onclick="handleAd1Click(event)">
+      مشاهدة الإعلان والتحقق (خطوة 1/2)
+    </a>
 
-    <!-- زر الخطوة 2: فتح الإعلان الثاني وسحب العملات -->
-    <button id="claimBtn" class="btn-step2" onclick="claimReward()" style="display: none;">سحب المكافأة الآن (خطوة 2/2)</button>
+    <!-- خطوة 2: زر السحب النهائي ويفتح الإعلان الثاني -->
+    <button id="claimBtn" class="btn btn-step2" onclick="claimReward()" style="display: none;">
+      سحب المكافأة الآن (خطوة 2/2)
+    </button>
 
     <div id="msg"></div>
 
@@ -60,10 +65,7 @@
   </div>
 
   <script>
-    // رابط Monetag المباشر الخاص بك
-    const MONETAG_LINK_1 = "https://omg10.com/4/11769732";
-    const MONETAG_LINK_2 = "https://omg10.com/4/11769732";
-
+    const MONETAG_LINK = "https://omg10.com/4/11769732";
     const COOLDOWN_TIME = 10 * 60;
     let expectedSum = 0;
 
@@ -86,78 +88,78 @@
     }
 
     function startTimer(secondsLeft) {
-      const btn1 = document.getElementById('step1Btn');
+      const link1 = document.getElementById('step1Link');
       const btn2 = document.getElementById('claimBtn');
       btn2.style.display = 'none';
-      btn1.style.display = 'block';
-      btn1.disabled = true;
+      link1.style.display = 'block';
+      link1.style.pointerEvents = 'none';
+      link1.style.background = '#475569';
 
       const interval = setInterval(() => {
         const m = Math.floor(secondsLeft / 60);
         const s = secondsLeft % 60;
-        btn1.innerText = `يرجى الانتظار (${m}:${s < 10 ? '0' : ''}${s})`;
+        link1.innerText = `يرجى الانتظار (${m}:${s < 10 ? '0' : ''}${s})`;
         secondsLeft--;
         if (secondsLeft < 0) {
           clearInterval(interval);
-          btn1.disabled = false;
-          btn1.innerText = 'تأكيد ومتابعة (خطوة 1/2)';
+          link1.style.pointerEvents = 'auto';
+          link1.style.background = '#0284c7';
+          link1.innerText = 'مشاهدة الإعلان والتحقق (خطوة 1/2)';
           localStorage.removeItem('last_faucet_claim');
         }
       }, 1000);
     }
 
-    // الخطوة 1: فحص البيانات وفتح الإعلان أول مرة
-    function verifyAndOpenAd1() {
+    // عند النقر على إعلان الخطوة الأولى
+    function handleAd1Click(e) {
       const address = document.getElementById('address').value.trim();
       const userAnswer = parseInt(document.getElementById('captchaAnswer').value.trim(), 10);
-      const msgDiv = document.getElementById('msg');
-      const btn1 = document.getElementById('step1Btn');
+      const link1 = document.getElementById('step1Link');
 
       if (!address) {
+        e.preventDefault();
         showMessage('يرجى كتابة عنوان محفظتك أو إيميل FaucetPay أولاً', 'error');
         return;
       }
 
       if (isNaN(userAnswer) || userAnswer !== expectedSum) {
+        e.preventDefault();
         showMessage('إجابة العملية الحسابية غير صحيحة، حاول مجدداً', 'error');
         generateCaptcha();
         return;
       }
 
-      msgDiv.style.display = 'none';
+      document.getElementById('msg').style.display = 'none';
 
-      // فتح الإعلان في تبويب جديد
-      window.open(MONETAG_LINK_1, '_blank');
-
-      // عد تنازلي 5 ثوانٍ ثم إظهار زر السحب
-      btn1.disabled = true;
+      // الرابط سيفتح الإعلان تلقائياً في صفحة جديدة لأنه <a>
+      // وهنا نبدأ العد التنازلي في الصفحة الحالية
+      link1.style.pointerEvents = 'none';
       let countdown = 5;
-      btn1.innerText = `جاري التحقق (${countdown})...`;
+      link1.innerText = `جاري التحقق (${countdown})...`;
 
       const timer = setInterval(() => {
         countdown--;
         if (countdown > 0) {
-          btn1.innerText = `جاري التحقق (${countdown})...`;
+          link1.innerText = `جاري التحقق (${countdown})...`;
         } else {
           clearInterval(timer);
-          btn1.style.display = 'none';
+          link1.style.display = 'none';
           document.getElementById('claimBtn').style.display = 'block';
         }
       }, 1000);
     }
 
-    // الخطوة 2: فتح الإعلان ثاني مرة وإرسال الساتوشي
+    // الخطوة الثانية: فتح إعلان ثانٍ وإرسال الساتوشي
     async function claimReward() {
       const address = document.getElementById('address').value.trim();
-      const msgDiv = document.getElementById('msg');
       const btn2 = document.getElementById('claimBtn');
 
-      // فتح الإعلان مرة ثانية لاحتساب ظهور إضافي
-      window.open(MONETAG_LINK_2, '_blank');
+      // فتح الإعلان الثاني في نافذة جديدة
+      window.open(MONETAG_LINK, '_blank');
 
       btn2.disabled = true;
       btn2.innerText = 'جاري التحقق والإرسال...';
-      msgDiv.style.display = 'none';
+      document.getElementById('msg').style.display = 'none';
 
       try {
         const response = await fetch('/api/claim', {
@@ -173,7 +175,7 @@
           localStorage.setItem('last_faucet_claim', Date.now().toString());
           startTimer(COOLDOWN_TIME);
         } else {
-          showMessage(data.message || 'تعذر الإرسال، تحقق من العنوان ورصيد الموقع', 'error');
+          showMessage(data.message || 'تعذر الإرسال، تحقق من العنوان', 'error');
           btn2.disabled = false;
           btn2.innerText = 'سحب المكافأة الآن (خطوة 2/2)';
           generateCaptcha();
