@@ -41,17 +41,17 @@
     </div>
 
     <!-- خانة الكابتشا الحسابية -->
-    <div class="captcha-box">
+    <div class="captcha-box" id="captchaContainer">
       <div class="captcha-text" id="captchaQuestion">أمان الصنبور: جاري التحميل...</div>
       <input type="number" id="captchaAnswer" placeholder="أدخل ناتج العملية هنا" dir="ltr">
     </div>
 
-    <!-- خطوة 1: رابط إعلان صريح مستحيل للمتصفح أن يحظره -->
-    <a id="step1Link" href="https://omg10.com/4/11769732" target="_blank" class="btn btn-step1" onclick="handleAd1Click(event)">
-      مشاهدة الإعلان والتحقق (خطوة 1/2)
-    </a>
+    <!-- خطوة 1: زر التوجيه الإجباري للرابط المختصر -->
+    <button id="step1Link" class="btn btn-step1" onclick="goToShortlink()">
+      تخطي الرابط المختصر والتحقق (خطوة 1/2)
+    </button>
 
-    <!-- خطوة 2: زر السحب النهائي ويفتح الإعلان الثاني -->
+    <!-- خطوة 2: زر السحب النهائي (لا يظهر إلا لمن أتم التخطي) -->
     <button id="claimBtn" class="btn btn-step2" onclick="claimReward()" style="display: none;">
       سحب المكافأة الآن (خطوة 2/2)
     </button>
@@ -65,6 +65,7 @@
   </div>
 
   <script>
+    const SHORTLINK_URL = "https://tpi.li/faucet1";
     const MONETAG_LINK = "https://omg10.com/4/11769732";
     const COOLDOWN_TIME = 10 * 60;
     let expectedSum = 0;
@@ -83,8 +84,10 @@
         const passed = Math.floor((Date.now() - parseInt(lastClaim)) / 1000);
         if (passed < COOLDOWN_TIME) {
           startTimer(COOLDOWN_TIME - passed);
+          return true;
         }
       }
+      return false;
     }
 
     function startTimer(secondsLeft) {
@@ -92,8 +95,7 @@
       const btn2 = document.getElementById('claimBtn');
       btn2.style.display = 'none';
       link1.style.display = 'block';
-      link1.style.pointerEvents = 'none';
-      link1.style.background = '#475569';
+      link1.disabled = true;
 
       const interval = setInterval(() => {
         const m = Math.floor(secondsLeft / 60);
@@ -102,59 +104,60 @@
         secondsLeft--;
         if (secondsLeft < 0) {
           clearInterval(interval);
-          link1.style.pointerEvents = 'auto';
-          link1.style.background = '#0284c7';
-          link1.innerText = 'مشاهدة الإعلان والتحقق (خطوة 1/2)';
+          link1.disabled = false;
+          link1.innerText = 'تخطي الرابط المختصر والتحقق (خطوة 1/2)';
           localStorage.removeItem('last_faucet_claim');
         }
       }, 1000);
     }
 
-    // عند النقر على إعلان الخطوة الأولى
-    function handleAd1Click(e) {
+    // التحقق عند العودة من الرابط المختصر
+    function checkVerificationStatus() {
+      const savedAddress = localStorage.getItem('user_faucet_address');
+      if (savedAddress) {
+        document.getElementById('address').value = savedAddress;
+      }
+
+      // إذا عاد المستخدم والموقع يفتح له الخطوة الثانية
+      const isVerified = sessionStorage.getItem('shortlink_passed');
+      if (isVerified === 'true' && !checkCooldown()) {
+        document.getElementById('step1Link').style.display = 'none';
+        document.getElementById('captchaContainer').style.display = 'none';
+        document.getElementById('claimBtn').style.display = 'block';
+        showMessage('تم التحقق بنجاح من إكمال الرابط! يمكنك سحب المكافأة الآن.', 'success');
+      }
+    }
+
+    // الخطوة 1: التحقق وتوجيه الزائر إجبارياً للرابط المختصر
+    function goToShortlink() {
       const address = document.getElementById('address').value.trim();
       const userAnswer = parseInt(document.getElementById('captchaAnswer').value.trim(), 10);
-      const link1 = document.getElementById('step1Link');
 
       if (!address) {
-        e.preventDefault();
         showMessage('يرجى كتابة عنوان محفظتك أو إيميل FaucetPay أولاً', 'error');
         return;
       }
 
       if (isNaN(userAnswer) || userAnswer !== expectedSum) {
-        e.preventDefault();
         showMessage('إجابة العملية الحسابية غير صحيحة، حاول مجدداً', 'error');
         generateCaptcha();
         return;
       }
 
-      document.getElementById('msg').style.display = 'none';
+      // حفظ العنوان وتفعيل حالة التحقق عند رجوعه
+      localStorage.setItem('user_faucet_address', address);
+      sessionStorage.setItem('shortlink_passed', 'true');
 
-      // الرابط سيفتح الإعلان تلقائياً في صفحة جديدة لأنه <a>
-      // وهنا نبدأ العد التنازلي في الصفحة الحالية
-      link1.style.pointerEvents = 'none';
-      let countdown = 5;
-      link1.innerText = `جاري التحقق (${countdown})...`;
-
-      const timer = setInterval(() => {
-        countdown--;
-        if (countdown > 0) {
-          link1.innerText = `جاري التحقق (${countdown})...`;
-        } else {
-          clearInterval(timer);
-          link1.style.display = 'none';
-          document.getElementById('claimBtn').style.display = 'block';
-        }
-      }, 1000);
+      // توجيه الزائر إجبارياً لـ ShrinkEarn
+      window.location.href = SHORTLINK_URL;
     }
 
-    // الخطوة الثانية: فتح إعلان ثانٍ وإرسال الساتوشي
+    // الخطوة 2: المطالبة وإرسال الساتوشي
     async function claimReward() {
       const address = document.getElementById('address').value.trim();
       const btn2 = document.getElementById('claimBtn');
 
-      // فتح الإعلان الثاني في نافذة جديدة
+      // فتح إعلان Monetag إضافي لزيادة الأرباح
       window.open(MONETAG_LINK, '_blank');
 
       btn2.disabled = true;
@@ -172,19 +175,18 @@
 
         if (data.success) {
           showMessage(data.message, 'success');
+          sessionStorage.removeItem('shortlink_passed');
           localStorage.setItem('last_faucet_claim', Date.now().toString());
           startTimer(COOLDOWN_TIME);
         } else {
           showMessage(data.message || 'تعذر الإرسال، تحقق من العنوان', 'error');
           btn2.disabled = false;
           btn2.innerText = 'سحب المكافأة الآن (خطوة 2/2)';
-          generateCaptcha();
         }
       } catch (err) {
         showMessage('حدث خطأ في الاتصال بالسيرفر', 'error');
         btn2.disabled = false;
         btn2.innerText = 'سحب المكافأة الآن (خطوة 2/2)';
-        generateCaptcha();
       }
     }
 
@@ -196,7 +198,7 @@
     }
 
     generateCaptcha();
-    checkCooldown();
+    checkVerificationStatus();
   </script>
 </body>
 </html>
